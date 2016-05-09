@@ -36,6 +36,11 @@ You can specify --start_date and --end_date, which can include an optional time.
 For the formats Gravity Forms can understand, see the get_date_range_where() method in
 /wp-content/plugins/gravity-forms/forms_model.php
 
+== Limitations ==
+
+A maximum of 200 entries are returned at a time.  If you have more entries than 
+this, you need to use a smaller date range (or edit the source code.)
+
 == Changelog ==
 
 = 0.0.1 =
