@@ -42,7 +42,7 @@ class GFUtility_Command extends WP_CLI_Command {
 		WP_CLI::line( 'Found form: ' . $form['id'] . ': ' . $form['title'] );
 
 		// Load entries
-		$search_criteria = [ 'status' => 'active' ];
+		$search_criteria = [ 'status' => 'active' ]; // i.e. not Spam or Trash
 
 		$date_fields = [ 'start_date', 'end_date' ];
 
@@ -52,7 +52,7 @@ class GFUtility_Command extends WP_CLI_Command {
 			}
 		}
 
-		$entries = GFAPI::get_entries( $form['id'], $search_criteria );   // i.e. not Spam or Trash
+		$entries = GFAPI::get_entries( $form['id'], $search_criteria, null, [ 'offset' =>0, 'page_size' => 200 ]);
 
 		if ( ! count( $entries ) ) {
 			WP_CLI::error( 'No entries found for this form.' );
@@ -65,6 +65,7 @@ class GFUtility_Command extends WP_CLI_Command {
 				case 'send':
 					WP_CLI::line( 'Sending notification for entry ' . $entry['id'] );
 					GFAPI::send_notifications( $form, $entry );
+					ob_end_clean();
 					break;
 				case 'list':
 				default:
