@@ -17,9 +17,8 @@ WP-CLI installed. http://wp-cli.org/
 
 == Installation ==
 
-1. Upload `plugin-name.php` to the `/wp-content/plugins/` directory
-2. Activate the plugin: `wp plugin activate wt-gravity-forms-utility` or via the 'Plugins' menu in WordPress admin
-3. Place `<?php do_action('plugin_name_hook'); ?>` in your templates
+1. Upload `wt-gravity-forms-utility` directory and it's contents to the `/wp-content/plugins/` directory
+2. Activate the plugin: `wp plugin activate wt-gravity-forms-utility` OR via the 'Plugins' menu in WordPress admin
 
 == Usage examples ==
 
