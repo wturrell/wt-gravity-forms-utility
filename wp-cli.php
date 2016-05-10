@@ -8,6 +8,190 @@ class GFUtility_Command extends WP_CLI_Command {
 	private static $max_entries = 200;
 
 	/**
+	 * Summarise notification settings for each form
+	 *
+	 * ## OPTIONS
+	 * 
+	 * [--forms=<form_ids>]
+	 * : Limit to specified form(s). Gravity Form numeric ID, comma-separated 
+	 *
+	 * [--sort=<sort>]
+	 * : Field to sort by. Options: id, title
+	 *
+	 * ## EXAMPLES
+	 *      wp gfutil notifications 
+	 *      wp gfutil notifications --forms=1
+	 *      wp gfutil notifications --forms=1,2,3
+	 *      wp gfutil notifications --sort=title
+	 */
+	function notifications($args, $assoc_args) {
+		// Get all forms and parse the data
+
+		$errors = [];   // Error code is a placeholder. I've used it in customised versions of this code but 
+						// am not running any specific validation of notification settings in this plugin yet.
+
+		$parsed_forms = [];
+
+		// Has user asked for only certain forms?
+		$chosen_forms = [];
+		
+		if (isset($assoc_args['forms'])) {
+			$chosen_forms = explode( ',', trim( $assoc_args['forms'] ) );
+		}
+		
+		// Read in forms
+		$forms = GFAPI::get_forms();
+
+		foreach ( $forms as $form ) {
+
+			if ( ! empty ( $chosen_forms)) {
+				// Skip forms as appropriate if we're filtering by ID
+				if ( ! in_array( $form['id'], $chosen_forms ) ) {
+					continue;	
+				}
+			}
+			
+			$result = self::parse_notifications( $form, $errors );
+
+			if ( $result ) {
+				$parsed_forms[] = $result;
+			}
+		}
+
+		// Check: have we actually got any forms to look at?
+		if ( empty ( $parsed_forms ) ) {
+			WP_CLI::error( 'No (active) forms found.' );
+		}
+
+		switch ( $assoc_args['sort'] ) {
+			case 'title':
+				self::sort_forms( $parsed_forms, $assoc_args['sort'] );
+				break;
+		}
+
+		// Display output
+		foreach ( $parsed_forms as $form ) {
+			self::notification_summary( $form );
+		}
+
+		if ( ! empty ( $errors ) ) {
+			WP_CLI::warning( 'Errors found: ' . count( $errors ) );
+
+			foreach ( $errors as $e ) {
+				echo $e, "\n";
+			}
+		}
+
+	}
+
+	/**
+	 * Sort forms array by specified field 
+	 * 
+	 * @param array $parsed_forms
+	 * @param string $field
+	 * 
+	 * @author william@wturrell.co.uk
+	 */
+	private function sort_forms( array &$parsed_forms, $field = 'title' ) {
+		$field_in_order = [ ];
+
+		foreach ( $parsed_forms as $key => $row ) {
+			$field_in_order[ $key ] = $row[ $field ];
+		}
+
+		array_multisort( $field_in_order, SORT_ASC, $parsed_forms );
+	}
+	
+	
+	/**
+	 * Read GravityForms form, store the key variables and loop through the notifications
+	 * Check notifications for common errors
+	 *
+	 * @param array $form a Form object from GFAPI
+	 * @param array $errors passed as reference, so we can store any errors we find
+	 *
+	 * @return array
+	 * 
+	 * @author william@wturrell.co.uk
+	 */
+	private function parse_notifications( array $form, array &$errors ) {
+		$output = [
+			'id'            => $form['id'],
+			'title'         => $form['title'],
+			'notifications' => [],
+		];
+
+		foreach ( array_values( $form['notifications'] ) as $not ) {
+			$output['notifications'][] = $not;
+		}
+
+		return $output;
+	}
+
+	/**
+	 * Print a summary of the notification fields for each form.
+	 *
+	 * @param array $form returned by GFAPI::get_form()
+	 * 
+	 * @author william@wturrell.co.uk
+	 */
+	private function notification_summary( array $form ) {
+		$fields = [
+			'Subject'   => 'subject',
+			'Send To'   => 'to',
+			'BCC'       => 'bcc',
+			'From'      => 'from',
+			'From Name' => 'fromName',
+			'Reply To'  => 'replyTo',
+		];
+
+		foreach ( $form['notifications'] as $not ) {
+
+			// Print form title followed by the name of the notification(s)
+			$title_format = "%4s  %-60s\n";
+			printf( $title_format, '#' . $form['id'], $form['title'] . ' - ' . $not['name'] );
+
+			echo str_repeat( '-', 80 ), "\n";
+
+			// Is send to an email, a email field or custom routing?
+			if ( $not['toType'] === 'field' ) {
+				// They're using an email field from the form
+				$notification_format = "%15s: %-60s\n";
+				printf($notification_format, 'Send To', 'Value of field #' . $not['to']);
+				
+				unset($not['to']);  // prevent it being displayed again as a number
+			} elseif (! empty($not['routing'])) {
+				// They're using rules-based routing
+				$notification_format = "%15s: %-60s\n";
+				printf($notification_format, 'Send To', 'Using custom routing');
+			}
+			
+			foreach ( $fields as $k => $v ) {
+				self::print_notification_line( $not, $k, $v );
+			}
+
+			echo "\n";
+		}
+	}
+
+	/**
+	 * Displays one line of the status report (but only if the specified field isn't empty)
+	 *
+	 * @param array $data parsed form notification data
+	 * @param string $title e.g. "Send To", "From"
+	 * @param string $field e.g. "to", "from"
+	 * 
+	 * @author william@wturrell.co.uk
+	 */
+	private function print_notification_line( array $data, $title, $field ) {
+		$notification_format = "%15s: %-60s\n";
+
+		if ( ! empty( $data[ $field ] ) ) {
+			printf( $notification_format, $title, $data[ $field ] );
+		}
+	}
+	
+	/**
 	 * Renotify
 	 * Send entry notifications again. Filter by form and date/time.
 	 *

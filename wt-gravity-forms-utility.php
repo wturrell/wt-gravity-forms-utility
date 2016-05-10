@@ -15,7 +15,7 @@
  * Plugin Name:       Gravity Forms Utility
  * Plugin URI:        https://github.com/wturrell/wt-gravity-forms-utility
  * Description:       Resend form notifications in bulk
- * Version:           0.0.1
+ * Version:           0.1.0
  * Tested up to:      4.5.2
  * Author:            William Turrell
  * Author URI:        http://wturrell.co.uk/
