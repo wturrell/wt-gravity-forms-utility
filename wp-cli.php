@@ -3,7 +3,13 @@
 class GFUtility_Command extends WP_CLI_Command {
 
 	/**
-	 * Notifications
+	 * Maximum number of entries to return (Gravity Forms defaults to 20)
+	*/
+	private static $max_entries = 200;
+
+	/**
+	 * Renotify
+	 * Send entry notifications again. Filter by form and date/time.
 	 *
 	 * ## OPTIONS
 	 * <form_id>
@@ -18,10 +24,16 @@ class GFUtility_Command extends WP_CLI_Command {
 	 * [--end_date=<end_date>]
 	 * : Inclusive (time optional) e.g. --end_date="2016-12-31"
 	 *
+	 * [--max_entries=<number>]
+	 * : Maximum entries to return at once. Increase this or send in batches by narrowing date window
+	 *
 	 * ## EXAMPLES
-	 *      wp gfutil notification 1 list
+	 *      wp gfutil renotify 1 list
+	 *      wp gfutil renotify 1 send
+	 *      wp gfutil renotify 1 send --start_date=2015-01-01
+	 *      wp gfutil renotify 1 send --start_date=2015-01-01 --end_date=2015-01-04 
 	 */
-	function notification( $args, $assoc_args ) {
+	function renotify( $args, $assoc_args ) {
 		list( $form_id, $action ) = $args;
 
 		if ( ! class_exists( 'GFAPI' ) ) {
@@ -29,7 +41,12 @@ class GFUtility_Command extends WP_CLI_Command {
 			
 			return;
 		}
-		
+
+		// Do they want to override max entries returned?
+		if ( isset( $assoc_args['max_entries'] ) ) {
+			self::$max_entries = (int) $assoc_args['max_entries'];
+		}
+
 		// Load form
 		$form = GFAPI::get_form( $form_id );
 
@@ -39,7 +56,7 @@ class GFUtility_Command extends WP_CLI_Command {
 			return;
 		}
 
-		WP_CLI::line( 'Found form: ' . $form['id'] . ': ' . $form['title'] );
+		WP_CLI::line( 'Form: #' . $form['id'] . ': ' . $form['title'] );
 
 		// Load entries
 		$search_criteria = [ 'status' => 'active' ]; // i.e. not Spam or Trash
@@ -52,13 +69,16 @@ class GFUtility_Command extends WP_CLI_Command {
 			}
 		}
 
-		$entries = GFAPI::get_entries( $form['id'], $search_criteria, null, [ 'offset' =>0, 'page_size' => 200 ]);
+		$entries = GFAPI::get_entries( $form['id'], $search_criteria, null, [ 
+			'offset' =>0,
+			'page_size' => self::$max_entries
+		]);
 
-		if ( ! count( $entries ) ) {
+		$no_of_entries = count( $entries );
+		
+		if ( ! $no_of_entries ) {
 			WP_CLI::error( 'No entries found for this form.' );
 		}
-
-		WP_CLI::line( 'Entries: ' . count( $entries ) );
 
 		foreach ( $entries as $entry ) {
 			switch ( $action ) {
@@ -73,10 +93,16 @@ class GFUtility_Command extends WP_CLI_Command {
 					break;
 			}	
 		}
+		
+		WP_CLI::line( 'Entries: ' . $no_of_entries );
+		
+		if ( $no_of_entries === self::$max_entries ) {
+			WP_CLI::warning( 'There MAY be more – you have reached the maximum returned ('.self::$max_entries .')');
+		}
 	}
 
 	private function entry_summary( $entry ) {
-		$format = "%6d %20s %10s \n";
+		$format = "%6d %20s %10s";
 		return sprintf( $format, $entry['id'], $entry['date_created'], $entry['status'] );
 	}
 
